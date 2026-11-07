@@ -1,36 +1,35 @@
 require 'faker'
 
 class ToolsController < ApplicationController
+  DEMO_PARTIALS = {
+    'color_picker' => 'color_picker',
+    'prompt_generator' => 'prompt_generator',
+    'photo_ideator' => 'photo_ideator'
+  }.freeze
+
   before_action :authenticate_user!
   skip_before_action :authenticate_user!, only: [:demo_show, :demo_index]
-  skip_before_action :verify_authenticity_token
+  before_action :set_owned_tool, only: %i[show update destroy equalize_audio]
 
-  # send file from the filepath stored in the params
   def download
-    output = params[:file]
-    if File.file?("public/equalized_audio/#{output}")
-      send_file "public/equalized_audio/#{output}", disposition: "attachment"
-    else
-      redirect_to tool_path(params[:id]), status: :unprocessable_entity
-    end
+    path = EqualizedAudio.path_for(current_user.id, params[:file])
+    return head :not_found unless path
+
+    send_file path, disposition: "attachment"
   end
 
-  # post request with audio and eq direction then apply equalization
   def equalize_audio
-    # get direction and input from params
-    direction = params[:direction].to_sym if params[:direction].present?
-    input = params[:file] if params[:file].present?
-    puts "# form data at `equalize_audio` in `tools_controller`:  #{input} #"
-
-    # equalization logic - direction and input are good? then do:
-    if direction && input && Tool.valid_direction?(direction) && Tool.valid_audio_input?(input)
-      # equalize audio and return output(aka: filepath) -> delete after 5 minutes
-      output = Tool.equalize(input, direction)
-      RemoveFileJob.set(wait: 5.minutes).perform_later(output)
-      return render json: { output: }
-    else # redirect error 422
-      redirect_to tool_path(params[:tool_id]), status: :unprocessable_entity
+    direction = params[:direction].to_s.to_sym
+    input = params[:file]
+    unless Tool.valid_direction?(direction) && Tool.valid_audio_input?(input)
+      return render json: { error: "Invalid audio or direction" }, status: :unprocessable_entity
     end
+
+    output = Tool.equalize(input, direction, user_id: current_user.id)
+    RemoveFileJob.set(wait: 5.minutes).perform_later(current_user.id, output)
+    render json: { output: output }
+  rescue EqualizedAudio::ProcessingError
+    render json: { error: "Audio processing failed" }, status: :unprocessable_entity
   end
 
   def index
@@ -51,15 +50,16 @@ class ToolsController < ApplicationController
   end
 
   def show
-    @tool = Tool.find(params[:id])
     @eq_directions = Tool::EQ_DIRECTIONS
     @photo_idea = random_photo_idea
   end
 
   def demo_show
+    @tool = DEMO_PARTIALS[params[:internal]]
+    return head :not_found unless @tool
+
     @eq_directions = Tool::EQ_DIRECTIONS
     @photo_idea = random_photo_idea
-    @tool = params[:internal]
   end
 
   def new
@@ -85,22 +85,24 @@ class ToolsController < ApplicationController
 
   def update
     # update and instance of a tool
-    @tool = Tool.find(params[:id])
     if @tool.update(tool_params)
       redirect_to @tool
     else
-      status :unprocessable_entity
-      render 'edit'
+      render json: { error: @tool.errors.full_messages }, status: :unprocessable_entity
     end
   end
 
   def destroy
-    @tool = Tool.find(params[:id])
-    authorize @tool
     @tool.destroy
   end
 
   private
+
+  def set_owned_tool
+    id = action_name == "equalize_audio" ? params[:tool_id] : params[:id]
+    @tool = current_user.tools.find(id)
+    authorize @tool, action_name == "equalize_audio" ? :update? : "#{action_name}?"
+  end
 
   # returns a hash with the photo idea information
   def random_photo_idea

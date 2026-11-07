@@ -1,6 +1,7 @@
 <div class="tool-container">
   <div id="equalizer-container" data-controller="equalizer" class="equalizer-container">
     <form name="equalize" enctype="multipart/form-data" id="equalize-form" method="post" action="/equalize" class="">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
       <fieldset>
         <legend>Please select an EQ type</legend>
         <% @eq_directions.each do |direction| %>
@@ -15,7 +16,7 @@
       <%# then delete the file %>
       <input type="submit" id="eq-submit" value="Equalize" class="btn btn-light">
       <%= image_tag "loader.gif", style: "display: none; width: 20px", id: "loader" %>
-      <% if @tool == Tool.new.class %>
+      <% if @tool.is_a?(Tool) %>
         <input type="hidden" value="<%= @tool.id %>" name="tool_id" />
       <% end %>
     </form>

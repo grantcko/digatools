@@ -21,10 +21,11 @@ export default class extends Controller {
       loader.style.display = 'block'
       event.preventDefault();
       const formData = new FormData(event.target);
-      fetch("/equalize", {method: "POST", body: formData})
+      fetch("/equalize", {method: "POST", body: formData, headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content }})
       .then(function(response) {
         console.log("post request sent");
         console.log(response);
+        if (!response.ok) throw new Error("Audio processing failed");
         return response.json();
       })
       .then(function(data) {
@@ -37,6 +38,10 @@ export default class extends Controller {
         downloadLink.href = `/download/?file=${data.output}&id=${tool_id}`;
         console.log(`this is the download link: ${downloadLink}`);
         container.insertBefore(downloadLink, eqForm)
+      }).catch(() => {
+        loader.style.display = "none";
+        downloadLink.textContent = "Audio processing failed";
+        container.insertBefore(downloadLink, eqForm);
       });
     };
   }

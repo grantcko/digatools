@@ -1,6 +1,5 @@
 require 'rails_helper'
 require 'streamio-ffmpeg'
-require 'open3'
 require_relative '../spec_methods'
 
 RSpec.describe Tool, type: :model do
@@ -115,98 +114,70 @@ RSpec.describe Tool, type: :model do
     context "when the audio_input is invalid" do
       it "should raise an error" do
         audio_input = invalid_uploaded_file
-        expect { Tool.equalize(audio_input, direction) }.to raise_error(ArgumentError)
+        expect { Tool.equalize(audio_input, direction, user_id: tool.user.id) }.to raise_error(ArgumentError)
       end
     end
 
     context "when the direction is invalid" do
       it "should raise an error" do
         direction = :invalid
-        expect { Tool.equalize(audio_input, direction) }.to raise_error(ArgumentError)
+        expect { Tool.equalize(audio_input, direction, user_id: tool.user.id) }.to raise_error(ArgumentError)
       end
     end
 
     context "when the direction is radio" do
-      it "should create a new audio file in public" do
+      it "creates a private audio file for its owner" do
         # Call the `equalize` method.
-        output = Tool.equalize(audio_input, :radio)
-        output_file_path = Rails.root.join('public', 'equalized_audio', output)
+        output = Tool.equalize(audio_input, :radio, user_id: tool.user.id)
+        output_file_path = EqualizedAudio.path_for(tool.user.id, output)
 
         # Assert that the output file was created.
         expect(File.exist?(output_file_path)).to be true
 
         # Delete the file
-        Open3.popen3("rm #{output_file_path}") do |stdin, stdout, stderr, wait_thr|
-          # Check if the command was successful
-          if wait_thr.value.success?
-            puts "# File deleted successfully"
-          else
-            puts "# Error deleting file: #{stderr.read}"
-          end
-        end
+        EqualizedAudio.remove(tool.user.id, output)
       end
     end
 
     context "when the direction is highpass" do
-      it "should create a new audio file in public" do
+      it "creates a private audio file for its owner" do
         # Call the `equalize` method.
-        output = Tool.equalize(audio_input, :highpass)
-        output_file_path = Rails.root.join('public', 'equalized_audio', output)
+        output = Tool.equalize(audio_input, :highpass, user_id: tool.user.id)
+        output_file_path = EqualizedAudio.path_for(tool.user.id, output)
 
         # Assert that the output file was created.
         expect(File.exist?(output_file_path)).to be true
 
         # Delete the file
-        Open3.popen3("rm #{output_file_path}") do |stdin, stdout, stderr, wait_thr|
-          # Check if the command was successful
-          if wait_thr.value.success?
-            puts "# File deleted successfully"
-          else
-            puts "# Error deleting file: #{stderr.read}"
-          end
-        end
+        EqualizedAudio.remove(tool.user.id, output)
       end
     end
 
     context "when the direction is lowpass" do
-      it "should create a new audio file in public" do
+      it "creates a private audio file for its owner" do
         # Call the `equalize` method.
-        output = Tool.equalize(audio_input, :lowpass)
-        output_file_path = Rails.root.join('public', 'equalized_audio', output)
+        output = Tool.equalize(audio_input, :lowpass, user_id: tool.user.id)
+        output_file_path = EqualizedAudio.path_for(tool.user.id, output)
 
         # Assert that the output file was created.
         expect(File.exist?(output_file_path)).to be true
 
         # Delete the file
-        Open3.popen3("rm #{output_file_path}") do |stdin, stdout, stderr, wait_thr|
-          # Check if the command was successful
-          if wait_thr.value.success?
-            puts "# File deleted successfully"
-          else
-            puts "# Error deleting file: #{stderr.read}"
-          end
-        end
+        EqualizedAudio.remove(tool.user.id, output)
       end
     end
 
     context "when the direction is vocal" do
-      it "should create a new audio file in public" do
+      it "creates a private audio file for its owner" do
         # Call the `equalize` method.
-        output = Tool.equalize(audio_input, :vocal)
-        output_file_path = Rails.root.join('public', 'equalized_audio', output)
+        output = Tool.equalize(audio_input, :vocal, user_id: tool.user.id)
+        output_file_path = EqualizedAudio.path_for(tool.user.id, output)
 
         # Assert that the output file was created.
         expect(File.exist?(output_file_path)).to be true
 
         # Delete the file
-        Open3.popen3("rm #{output_file_path}") do |stdin, stdout, stderr, wait_thr|
-          # Check if the command was successful
-          if wait_thr.value.success?
-            puts "# File deleted successfully"
-          else
-            puts "# Error deleting file: #{stderr.read}"
-          end
-        end
+        EqualizedAudio.remove(tool.user.id, output)
       end
     end
   end
